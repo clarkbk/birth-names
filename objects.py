@@ -1,35 +1,48 @@
-from database import db
+import fuzzy
+import os
+import re
+import requests
 
-from peewee import CharField
-from peewee import ForeignKeyField
-from peewee import IntegerField
-from peewee import Model
-
-
-class BaseModel(Model):
-    class Meta:
-        database = db
+from urllib.parse import urlparse
 
 
-class Name(Model):
-    def __eq__(self, other):
-        return (self.name == other.name and self.sex == other.sex)
-
-    name = CharField()
-    sex = CharField()
-
-    class Meta:
-        database = db
-        indexes = (
-            (('name', 'sex'), True),
-        )
+soundex = fuzzy.Soundex(4)
+dmeta = fuzzy.DMetaphone()
 
 
-class Year(BaseModel):
-    year = IntegerField(primary_key=True)
+class UkArchive(object):
+    base_url = "https://www.ons.gov.uk"
+    download_prefix = '/file?uri='
+    output_data_directory = os.path.join('data', 'uk')
+
+    def __init__(self, link):
+        self.link = link.replace(self.download_prefix, '')
+
+        p = urlparse(self.link)
+        self.filename = os.path.basename(p.path)
+
+        self.year = int(re.search(r'(\d{4})', self.filename).group(0))
+
+        sexes = {
+            'boy': 'M',
+            'girl': 'F'
+        }
+        self.sex = sexes[re.search(r'(boy|girl)', self.filename).group(0)]
+
+        self.output_filename = f'{self.year}_{self.sex}.xls'
+
+    def download_xls(self):
+        if self.output_filename in os.listdir(self.output_data_directory):
+            print(f'{self.output_filename} already exists')
+            return
+
+        r = requests.get(self.base_url + self.download_prefix + self.link)
+        with open(os.path.join('data', 'uk', self.output_filename), 'wb') as f:
+            f.write(r.content)
 
 
-class BirthRecord(BaseModel):
-    name = ForeignKeyField(Name, backref='birth_records')
-    year = ForeignKeyField(Year, backref='birth_records')
-    births = IntegerField()
+class Name(object):
+    def __init__(self, name):
+        self.name = name
+        self.soundex = soundex(name)
+        self.dmeta = dmeta(name)[0]
