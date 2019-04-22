@@ -17,6 +17,14 @@ $ pip install -r requirements.txt
 
 ## Use
 
+Create the database tables:
+
+```bash
+$ python3 database.py
+```
+
+Load the database:
+
 ```bash
 $ python3 process.py
 ```
