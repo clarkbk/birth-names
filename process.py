@@ -3,97 +3,171 @@ import os
 import re
 import xlrd
 
-from database import db, DbName, DbYear, DbBirthRecord
-from objects import UkArchive
-from utils import Utils
-# from tqdm import tqdm
+from database import db, DbBirthRecord, MyBirthRecord
+from logger import logger
+from pytictoc import TicToc
+from queue import Queue
+from threading import Thread
 
 
-def process_us_files():
+class Processor(object):
+    @property
+    def data_directory(self):
+        return os.path.join('data', self.country)
 
-    data_directory = os.path.join('data', 'us')
+    def get_datafiles(self):
+        datafiles = os.listdir(self.data_directory)
+        datafiles.sort(reverse=True)
+        datafiles = filter(self.utils.is_valid_file, datafiles)
+        return datafiles
 
-    files = os.listdir(data_directory)
-    files.sort(reverse=True)
+    def process(self, q, sentinel):
+        t = TicToc()
+        files = self.get_datafiles()
+        for file in files:
+            t.tic()
+            logger.info(f'{self.country.upper()} file - {file.ljust(12)} - Starting...')
 
-    files = filter(Utils.US.is_valid_file, files)
+            for record in self.process_file(file):
+                br = MyBirthRecord(*record)
+                q.put(br.make_db_record())
 
-    for file in files:
-        year_num = int(re.search(r'(\d{4})', file).group(1))
-        year = DbYear.get_or_create(year=year_num)
+            time = t.tocvalue()
+            logger.info(f'{self.country.upper()} file - {file.ljust(12)} - Finished '
+                        f'({time:.1f} seconds)')
 
-        with open(os.path.join(data_directory, file), 'r') as f:
+        q.put(sentinel)
+
+
+class USProcessor(Processor):
+    country = 'us'
+
+    def process_file(self, file):
+        year = int(re.search(r'(\d{4})', file).group(1))
+
+        with open(os.path.join(self.data_directory, file), 'r', encoding='ascii') as f:
             reader = csv.reader(f)
 
-            birthrecords = []
-            with db.atomic():
-                for row in reader:
-                    name_str, sex, births = list(row)
+            for row in reader:
+                name, sex, births = list(row)
 
-                    name, created = DbName.get_or_create(name=name_str,
-                                                         soundex=soundex,
-                                                         dmeta=dmeta)
+                yield (self.country, year, name, sex, int(births))
 
-                    birthrecords.append(DbBirthRecord(country='us',
-                                                      year=year,
-                                                      name=name,
-                                                      sex=sex,
-                                                      births=births))
-
-            with db.atomic():
-                DbBirthRecord.bulk_create(birthrecords, batch_size=500)
+    class utils(object):
+        @staticmethod
+        def is_valid_file(file):
+            return file.endswith('.txt')
 
 
-def process_uk_files():
+class UKProcessor(Processor):
+    country = 'uk'
 
-    data_directory = UkArchive.output_data_directory
+    def process_file(self, file):
+        year, sex = self.utils.extract_data_from_filename(file)
 
-    files = os.listdir(data_directory)
-    files.sort(reverse=True)
-
-    files = filter(Utils.UK.is_valid_file, files)
-
-    for file in files:
-        year_num, sex = Utils.UK.extract_data_from_filename(file)
-        year = DbYear.get_or_create(year=year_num)
-
-        with xlrd.open_workbook(os.path.join(data_directory, file)) as book:
-            sheet_idx = Utils.UK.find_correct_worksheet(book)
+        with xlrd.open_workbook(os.path.join(self.data_directory, file)) as book:
+            sheet_idx = self.utils.find_correct_worksheet(book)
             sheet = book.sheet_by_index(sheet_idx)
-            start_row = Utils.UK.find_start_row(sheet)
+            start_row = self.utils.find_start_row(sheet)
 
-            birthrecords = []
+            for i in range(sheet.nrows):
+                if i <= start_row:
+                    continue
+
+                row = [c for c in sheet.row(i) if not self.utils.cell_is_empty(c)]
+                if not self.utils.is_valid_row(row):
+                    continue
+
+                name, births = row[1:]
+                births = int(births.value)
+
+                if births < 5:
+                    continue
+
+                yield (self.country, int(year), name.value.title(), sex, births)
+
+    class utils(object):
+        @staticmethod
+        def is_valid_file(file):
+            return (
+                file.endswith('.xls') and
+                not file.startswith('historicname')
+            )
+
+        @staticmethod
+        def extract_data_from_filename(file):
+            file = file.replace('.xls', '')
+            return file.split('_')
+
+        @staticmethod
+        def find_correct_worksheet(book):
+            if book.nsheets >= 6:
+                pttrn = re.compile('table 6', re.IGNORECASE)
+            else:
+                pttrn = re.compile('table 3', re.IGNORECASE)
+            return [i for i, sht in enumerate(book.sheet_names()) if pttrn.search(sht)][0]
+
+        @staticmethod
+        def find_start_row(sheet):
+            for i in range(10):
+                if all(x in sheet.row_values(i) for x in ['Rank', 'Name']):
+                    return i
+
+        @staticmethod
+        def is_valid_row(row):
+            return (
+                len(row) == 3 and
+                row[0].ctype == 2 and
+                row[1].ctype == 1 and
+                row[2].ctype == 2
+            )
+
+        @staticmethod
+        def cell_is_empty(cell):
+            return cell.ctype == 0
+
+
+class Consumer(object):
+    @staticmethod
+    def consume(q, sentinel):
+        batch = []
+        while True:
+            while len(batch) < 1000:
+                record = q.get()
+
+                if record is sentinel:
+                    break
+
+                batch.append(record)
+                q.task_done()
+
             with db.atomic():
-                for i in range(sheet.nrows):
-                    if i <= start_row:
-                        continue
-
-                    row = [c for c in sheet.row(i) if not Utils.UK.cell_is_empty(c)]
-                    if not Utils.UK.is_valid_row(row):
-                        continue
-
-                    name_str, births = row[1:2]
-                    name, created = DbName.get_or_create(name=name_str,
-                                                         soundex=soundex,
-                                                         dmeta=dmeta)
-
-                    birthrecords.append(DbBirthRecord(country='uk',
-                                                      year=year,
-                                                      name=name,
-                                                      sex=sex,
-                                                      births=births))
-
-                    # TODO: use fuzzy to generate soundex & dmetaphone values
-                    # TODO: check that refactored code still works/runs
-                    # TODO: write code to commit UK records to db via peewee model
-                    # TODO: re-add command line progress meter via tqdm (?)
-                    # TODO: truncate tables and re run everything
-                    # TODO: update README
-                    # TODO: push to remote
+                DbBirthRecord.bulk_create(batch)
+            batch = []
 
 
 if __name__ == '__main__':
-    # db.create_tables([Name, Year, BirthRecord])
+    logger.info('Starting...')
+    q = Queue()
+    sentinel = object()
 
-    process_us_files()
-    # process_uk_files()
+    threads = []
+    for processor in [USProcessor, UKProcessor]:
+        p = processor()
+        t = Thread(name=f'{type(p).__name__}',
+                   target=p.process,
+                   args=(q, sentinel,),
+                   daemon=True)
+        t.start()
+        threads.append(t)
+
+    t = Thread(name='Consumer',
+               target=Consumer.consume,
+               args=(q, sentinel,),
+               daemon=True)
+    t.start()
+
+    for t in threads:
+        t.join()
+
+    logger.info('Done')
