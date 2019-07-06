@@ -13,6 +13,12 @@ $ pip install -r requirements.txt
 
 For local use, you can spin up a database in [Postgres.app](https://postgresapp.com/). Then, using the example provided in `.env.sample` as a template, save your access credentials in a new file named `.env`.
 
+Afterward, don't forget to:
+
+```bash
+$ source .env
+```
+
 ### 3. Download source data from web and save to local folder
 
 ```bash
