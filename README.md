@@ -36,4 +36,4 @@ The result should be three new empty tables in your database: `year`, `birth_rec
 $ python3 process.py
 ```
 
-Creates a data model for birth records and initializes a database schema using [Peewee ORM](http://docs.peewee-orm.com/en/latest/). Loops through all U.S. and U.K. data files in `/data/` and loads the records into a PostgreSQL database.
+Creates a data model for birth records and initializes a database schema using [Peewee ORM](http://docs.peewee-orm.com/en/latest/). Loops through all U.S. and U.K. data files in `/data/` and loads the records into a PostgreSQL database. This could take as long as a half hour to complete.
