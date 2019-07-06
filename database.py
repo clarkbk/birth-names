@@ -38,9 +38,11 @@ class DbName(BaseModel):
 
 class DbYear(BaseModel):
     year = IntegerField(primary_key=True,
-                        constraints=[Check('year between 1800 and 3000')])
-    us_births = IntegerField(null=True)
-    uk_births = IntegerField(null=True)
+                        constraints=[Check('year between 1800 and 2100')])
+    births_us_m = IntegerField(null=True)
+    births_us_f = IntegerField(null=True)
+    births_uk_m = IntegerField(null=True)
+    births_uk_f = IntegerField(null=True)
     updated_at = DateTimeField(constraints=[SQL('DEFAULT CURRENT_TIMESTAMP')])
 
 

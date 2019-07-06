@@ -1,29 +1,36 @@
+## Instructions
 
-## Installation
+### 1. Install
 
 ```bash
+$ git clone <this repo>
+$ cd birth-names
 $ mkvirtualenv birth-names
 $ pip install -r requirements.txt
 ```
 
-## Configuration
+### 2. Start a PostgreSQL server and save the access credentials
 
-1. Download national birth record files from the U.S. Social Security Administration [here](https://www.ssa.gov/oact/babynames/names.zip)
-2. Extract to `/data/us` folder
-  - _you should see many files named `yob{YYYY}.txt`_
-3. Start a PostgreSQL server and save the access credentials in `.env`
-4. Run `download.py` to retrieve national birth records from the U.K. Office for National Statistics (ONS)
-  - _this should produce many `.xls` files in the `/data/uk` folder_
+For local use, you can spin up a database in [Postgres.app](https://postgresapp.com/). Then, using the example provided in `.env.sample` as a template, save your access credentials in a new file named `.env`.
 
-## Use
+### 3. Download source data from web and save to local folder
 
-Create the database tables:
+```bash
+$ python3 download.py
+```
+
+The result should be two folders, `data/us` and `data/uk`. Each should contain many files with annual birth records for the respective country plus one summary file of total births with a name like `us_births_by_year.csv` (or `uk_…`).
+
+### 4. Create the database tables
 
 ```bash
 $ python3 database.py
 ```
 
-Load the database:
+The result should be three new empty tables in your database: `year`, `birth_record`, and `name`.
+
+
+### 5. Load the database tables
 
 ```bash
 $ python3 process.py

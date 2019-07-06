@@ -3,8 +3,9 @@ import os
 import re
 import xlrd
 
-from database import db, DbBirthRecord, MyBirthRecord
+from database import db, DbBirthRecord, DbYear, MyBirthRecord
 from logger import logger
+from peewee import DoesNotExist
 from pytictoc import TicToc
 from queue import Queue
 from threading import Thread
@@ -169,5 +170,23 @@ if __name__ == '__main__':
 
     for t in threads:
         t.join()
+
+    logger.info('Adding total births per year...')
+
+    for country in ['us', 'uk']:
+        with open(os.path.join('data', country, f'births_by_year.csv'), 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if not row[0].isdigit():
+                    continue
+
+                try:
+                    y = DbYear.get_by_id(int(row[0]))
+                except DoesNotExist:
+                    continue
+
+                setattr(y, f'births_{country}_m', row[1])
+                setattr(y, f'births_{country}_f', row[2])
+                y.save()
 
     logger.info('Done')
