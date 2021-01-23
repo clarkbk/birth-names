@@ -1,9 +1,10 @@
 beautifulsoup4==4.7.1
 inflection==0.3.1
 lxml==4.6.2
+openpyxl==3.0.6
 peewee==3.8.0
 phonetics==1.0.5
-psycopg2-binary==2.7.6.1
-pytictoc==1.5.0
-requests==2.21.0
-xlrd==1.2.0
+psycopg2==2.8.6
+pytictoc==1.5.1
+requests==2.25.1
+xlrd==2.0.1

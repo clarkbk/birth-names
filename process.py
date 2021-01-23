@@ -5,6 +5,7 @@ import xlrd
 
 from database import db, DbBirthRecord, DbYear, MyBirthRecord
 from logger import logger
+from openpyxl import load_workbook
 from peewee import DoesNotExist
 from pytictoc import TicToc
 from queue import Queue
@@ -26,6 +27,11 @@ class Processor(object):
         t = TicToc()
         files = self.get_datafiles()
         for file in files:
+
+            # skip already-processed files, according to year
+            if (int(re.search(r'(\d{4})', file).group(1)) <= 2017):
+                continue
+
             t.tic()
             logger.info(f'{self.country.upper()} file - {file.ljust(12)} - Starting...')
 
@@ -64,41 +70,60 @@ class UKProcessor(Processor):
     country = 'uk'
 
     def process_file(self, file):
-        year, sex = self.utils.extract_data_from_filename(file)
+        year, sex, ext = self.utils.extract_data_from_filename(file)
 
-        with xlrd.open_workbook(os.path.join(self.data_directory, file)) as book:
-            sheet_idx = self.utils.find_correct_worksheet(book)
-            sheet = book.sheet_by_index(sheet_idx)
-            start_row = self.utils.find_start_row(sheet)
-
-            for i in range(sheet.nrows):
-                if i <= start_row:
-                    continue
-
-                row = [c for c in sheet.row(i) if not self.utils.cell_is_empty(c)]
-                if not self.utils.is_valid_row(row):
-                    continue
+        if ext == 'xlsx':
+            wb = load_workbook(filename=os.path.join(self.data_directory, file))
+            for row in wb['Table 6'].iter_rows(min_row=7, max_col=3, values_only=True):
+                if not row[0]:
+                    break
 
                 name, births = row[1:]
-                births = int(births.value)
 
                 if births < 5:
                     continue
 
-                yield (self.country, int(year), name.value.title(), sex, births)
+                yield (self.country, int(year), str(name).title(), sex, births)
+
+        elif ext == 'xls':
+            with xlrd.open_workbook(os.path.join(self.data_directory, file)) as book:
+                sheet_idx = self.utils.find_correct_worksheet(book)
+                sheet = book.sheet_by_index(sheet_idx)
+                start_row = self.utils.find_start_row(sheet)
+
+                for i in range(sheet.nrows):
+                    if i <= start_row:
+                        continue
+
+                    row = [c for c in sheet.row(i) if not self.utils.cell_is_empty(c)]
+                    if not self.utils.is_valid_row(row):
+                        continue
+
+                    name, births = row[1:]
+                    births = int(births.value)
+
+                    if births < 5:
+                        continue
+
+                    yield (self.country, int(year), name.value.title(), sex, births)
 
     class utils(object):
         @staticmethod
         def is_valid_file(file):
             return (
-                file.endswith('.xls') and
+                bool(re.search(r'\.xlsx?$', file)) and
                 not file.startswith('historicname')
             )
 
         @staticmethod
         def extract_data_from_filename(file):
-            file = file.replace('.xls', '')
-            return file.split('_')
+            pttrn = r'\.(xlsx?)$'
+            extension = re.search(pttrn, file).group(1)
+            file = re.sub(pttrn, '', file)
+
+            data = file.split('_')
+            data.append(extension)
+            return data
 
         @staticmethod
         def find_correct_worksheet(book):

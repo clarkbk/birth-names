@@ -61,8 +61,9 @@ class UkArchive(object):
             'girl': 'F'
         }
         self.sex = sexes[re.search(r'(boy|girl)', self.filename).group(0)]
+        self.extension = re.search(r'\.(xlsx?)$', self.filename).group(1)
 
-        self.output_filename = f'{self.year}_{self.sex}.xls'
+        self.output_filename = f'{self.year}_{self.sex}.{self.extension}'
 
     def download_xls(self):
         if not os.path.exists(self.output_data_directory):
@@ -90,7 +91,7 @@ def download_uk_annual_records():
             logger.debug(r.headers)
             raise e
 
-        soup = BeautifulSoup(r.content, 'html.parser')
+        soup = BeautifulSoup(r.content, 'lxml')
         links = soup.select('a.btn.btn--primary.btn--thick')
 
         for link in [l['href'] for l in links]:

@@ -3,7 +3,7 @@
 *.pdf
 *.twb
 *.txt
-*.xls
+*.xls*
 !requirements.txt
 
 # Byte-compiled / optimized / DLL files
