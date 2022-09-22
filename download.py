@@ -70,7 +70,7 @@ class UkArchive(object):
             os.makedirs(self.output_data_directory)
 
         if self.output_filename in os.listdir(self.output_data_directory):
-            logger.warn(f'{self.output_filename} already exists')
+            logger.warning(f'{self.output_filename} already exists')
             return
 
         r = requests.get(self.base_url + self.download_prefix + self.link)
