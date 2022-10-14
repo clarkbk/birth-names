@@ -53,4 +53,4 @@ $ streamlit run analysis.py
 
 Starts a local [Streamlit](https://streamlit.io/) server and opens a browser tab with an interactive time series chart rendered using [Plotly Express](https://plotly.com/python/plotly-express/). It should look like this:
 
-- [ ] todo: add a screenshot
+<img width="1224" alt="analysis_·_Streamlit" src="https://user-images.githubusercontent.com/1349496/195747377-e7535304-df65-4bed-9962-bf8217473ea5.png">
