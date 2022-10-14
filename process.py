@@ -73,7 +73,8 @@ class UKProcessor(Processor):
         year, sex, ext = self.utils.extract_data_from_filename(file)
 
         if ext == 'xlsx':
-            wb = load_workbook(filename=os.path.join(self.data_directory, file))
+            wb = load_workbook(filename=os.path.join(self.data_directory, file),
+                read_only=True, data_only=True)
             for row in wb['Table 6'].iter_rows(min_row=7, max_col=3, values_only=True):
                 if not row[0]:
                     break
