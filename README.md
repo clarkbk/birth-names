@@ -43,3 +43,14 @@ $ python3 process.py
 ```
 
 Creates a data model for birth records and initializes a database schema using [Peewee ORM](http://docs.peewee-orm.com/en/latest/). Loops through all U.S. and U.K. data files in `/data/` and loads the records into a PostgreSQL database. This could take as long as a half hour to complete.
+
+
+### 6. Run the charting interface
+
+```bash
+$ streamlit run analysis.py
+```
+
+Starts a local [Streamlit](https://streamlit.io/) server and opens a browser tab with an interactive time series chart rendered using [Plotly Express](https://plotly.com/python/plotly-express/). It should look like this:
+
+- [ ] todo: add a screenshot

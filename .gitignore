@@ -12,3 +12,5 @@ __pycache__/
 *$py.class
 
 .ipynb_checkpoints
+
+favorites.py
