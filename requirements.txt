@@ -8,6 +8,6 @@ phonetics==1.0.5
 plotly==5.10.0
 psycopg2-binary==2.9.3
 pytictoc==1.5.2
-requests==2.28.1
+requests==2.31.0
 streamlit==1.13.0
 xlrd==2.0.1
